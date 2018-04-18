@@ -1,9 +1,9 @@
 version: 0.2
 
-env:
-  # variables:
-  #    STACKNAME: "value"
-  #    CHANGESETNAME: "value"
+# env:
+#   # variables:
+#   #    STACKNAME: "value"
+#   #    CHANGESETNAME: "value"
 phases:
   install:
     commands:
