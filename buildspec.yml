@@ -1,0 +1,17 @@
+version: 0.2
+
+env:
+  # variables:
+  #    STACKNAME: "value"
+  #    CHANGESETNAME: "value"
+phases:
+  install:
+    commands:
+      - pip install boto3
+  build:
+    commands:
+      - echo Checking changeset will not destroy dynamoDB table
+      - python deploy.py
+  post_build:
+    commands:
+      - echo Build completed on `date`
