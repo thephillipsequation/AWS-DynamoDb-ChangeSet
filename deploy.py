@@ -104,9 +104,9 @@ def main():
         template_string = f.read()
 
     cf1 = cloudformation( cfn_string=template_string, 
-                         stackname='jp-test-4', 
-                         table_name="myTableName23", 
-                         change_set_name="change-set-2")
+                         stackname='jp-test-1', 
+                         table_name="myTableName", 
+                         change_set_name="change-set-1")
     cf1.create_change_set()
 
 if __name__ == "__main__":
