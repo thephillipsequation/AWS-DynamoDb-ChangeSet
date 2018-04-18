@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources: 
+  
+  CloudWatchEventServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument:   
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                      "codepipeline:StartPipelineExecution"
+                  ],
+                  "Resource": [
+                      "arn:aws:codepipeline:us-east-1:324320755747:jp-cfn-240"
+                  ]
+              }
+          ]
+        }
+      RoleName: jp-cloudwatch-event-role
+
+  CloudWatchEventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Allows pipeline to be triggered by code commit" 
+      EventPattern:
+        {
+          "source": [
+            "aws.codecommit"
+          ],
+          "detail-type": [
+            "CodeCommit Repository State Change"
+          ],
+          "resources": [
+            "arn:aws:codecommit:us-east-1:324320755747:JP-CFN-240"
+          ],
+          "detail": {
+            "event": [
+              "referenceCreated",
+              "referenceUpdated"
+            ],
+            "referenceType": [
+              "branch"
+            ],
+            "referenceName": [
+              "master"
+            ]
+          }
+        }       
+      Name: "jp-cloudwatch-event"
+
+  CodeBuild:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Environment:
+       Type: LINUX_CONTAINER
+       ComputeType: BUILD_GENERAL1_SMALL
+       Image: aws/codebuild/ubuntu-base:14.04
+      Source:
+        Location: "arn:aws:codecommit:us-east-1:324320755747:JP-CFN-240"
+        Type: CODECOMMIT
+      ServiceRole: "arn:aws:iam::324320755747:role/service-role/codebuild-jp-codebuild-service-role"
+      Artifacts:
+        Type: CODEPIPELINE
+      BadgeEnabled: 'true'
+      
+    
+
+  AppPipeline: 
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties: 
+      Name: jp-cfn-240
+      RoleArn: "arn:aws:iam::324320755747:role/AWS-CodePipeline-Service"
+      Stages: 
+        - 
+          Name: Source
+          Actions: 
+            - 
+              Name: SourceAction
+              ActionTypeId: 
+                Category: Source
+                Provider: CodeCommit
+                Configuration:
+                  RepositoryName : "JP-CFN-240"
+                  BranchName  : "Master"
+        - 
+          Name: "Deploy Dynamo DB"
+          Actions: 
+            - 
+              Name: CodeBuild
+              InputArtifacts: 
+                - 
+                  Name: SourceOutput
+              ActionTypeId: 
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration: 
+                ProjectName: "jp-test-cfn240"
+              RunOrder: 1
