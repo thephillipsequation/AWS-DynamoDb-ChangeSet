@@ -105,7 +105,7 @@ def main():
 
     cf1 = cloudformation( cfn_string=template_string, 
                          stackname='jp-test-1', 
-                         table_name="myTableName", 
+                         table_name="myTableName2", 
                          change_set_name="change-set-1")
     cf1.create_change_set()
 
