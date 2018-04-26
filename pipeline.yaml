@@ -1,0 +1,140 @@
+--- 
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDb Deployment Pipeline
+Parameters:
+  ProjectName:
+    Description: The Name of the ProjectName
+    Type: String
+    Default: JP-CFN-240
+  RepositoryBranch:
+    Description: The branch to build with the pipeline
+    Type: String
+    Default: master
+Resources:
+
+  CodeBuildRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+                - "sts:AssumeRole"
+      Policies:
+        - PolicyName: cb-service-role
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "*"
+                Resource: "*"
+
+## Role for CodePipeline
+  CodePipelineRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement: 
+            - Effect: Allow
+              Principal:
+                Service:
+                  - codepipeline.amazonaws.com
+              Action:
+                  - "sts:AssumeRole"
+        Policies:
+          - PolicyName: cb-role
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource: "*"
+                # - Effect: Allow
+                #   Action:
+                #     - s3:PutObject
+                #   Resource:
+                #     - "arn:aws:s3:::codepipeline*"
+                - Effect: Allow
+                  Action:
+                    - codecommit:CancelUploadArchive
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:UploadArchive
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - codebuild:BatchGetBuilds
+                    - codebuild:StartBuild
+                  Resource: "*"
+
+  ArtifactS3Bucket:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Delete
+  
+  DynamoDbCodeBuild:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:2.7.12
+      Source:
+        Location: "arn:aws:codecommit:us-east-1:324320755747:JP-CFN-240"
+        Type: CODECOMMIT
+      Tags:
+        - Key: Owner
+          Value: !Ref ProjectName
+      TimeoutInMinutes: 10
+      ServiceRole: !GetAtt 
+        - CodeBuildRole
+        - Arn
+      Artifacts:
+        Type: no_artifacts
+
+  DynamoDbPipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    DependsOn: DynamoDbCodeBuild
+    Properties:
+      RoleArn: !GetAtt
+        - CodePipelineRole
+        - Arn
+      Stages:
+      - Name: Source
+        Actions:
+        - InputArtifacts: []
+          Name: Source
+          ActionTypeId:
+            Category: Source
+            Owner: AWS
+            Version: '1'
+            Provider: CodeCommit
+          OutputArtifacts:
+            - Name: MyApp
+          Configuration:
+            BranchName: !Ref RepositoryBranch
+            RepositoryName: JP-CFN-240
+          RunOrder: 1
+      - Name: Build
+        Actions:
+        - InputArtifacts: 
+            - Name: MyApp
+          Name: DeployDynamoDB
+          ActionTypeId:
+            Category: Build
+            Owner: AWS
+            Version: '1'
+            Provider: CodeBuild
+          OutputArtifacts: []
+          Configuration:
+            ProjectName: !Ref DynamoDbCodeBuild
+          RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactS3Bucket
